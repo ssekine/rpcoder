@@ -48,11 +48,10 @@ module RPCoder
 
     def export(dir = nil)
       # 共通出力先パス
-      if nil === dir
-        root_path = File.expand_path('src', File.dirname($PROGRAM_NAME))
-      else
-        root_path = dir
+      if dir.nil?
+        dir = File.expand_path('src', File.dirname($PROGRAM_NAME))
       end
+      root_path = dir
 
       # コントラクトバージョンの取得 -------------------------------------------
       version = ""
@@ -90,7 +89,7 @@ module RPCoder
             file_path = File.join(dir_path, func.name + ".php")
           end
 
-          puts "PHP #{erb_name} : #{file_path}"
+#          puts "PHP #{erb_name} : #{file_path}"
           File.open(file_path, "w") do |file| file << render_funcphp(func, erb_name) end
         end
       end
@@ -102,7 +101,7 @@ module RPCoder
           file_path = File.join(dir_path, type.name + ".php")      # 出力先ファイル名を生成する
           FileUtils.mkdir_p(dir_path)                              # 出力先ディレクトリがなければ作成する
 
-          puts "PHP #{erb_name} : #{file_path}"
+#          puts "PHP #{erb_name} : #{file_path}"
           File.open(file_path, "w") do |file| file << render_typephp(type, erb_name) end
         end
       end
@@ -113,7 +112,7 @@ module RPCoder
         file_path = File.join(dir_path, erb_name + ".php")       # 出力先ファイル名を生成する
         FileUtils.mkdir_p(dir_path)                              # 出力先ディレクトリがなければ作成する
 
-        puts "PHP #{erb_name} : #{file_path}"
+#        puts "PHP #{erb_name} : #{file_path}"
         File.open(file_path, "w") do |file| file << render_basephp(version, erb_name) end # コントラクトバージョンも渡す
       end
     end
@@ -149,7 +148,7 @@ module RPCoder
     #
     def make_pathphp(dir_path_make, dir_path_depth)
       file_path = File.join(dir_path_make, "path.php")
-      puts "path    : #{file_path}" # 出力ファイルパスを表示
+#      puts "path    : #{file_path}" # 出力ファイルパスを表示
       File.open(file_path, "w") do |file| file << render_pathphp(dir_path_depth.split("/").size) end
     end
 
@@ -188,7 +187,7 @@ module RPCoder
     end
 
     def template_path(name)
-      File.join File.dirname(__FILE__), 'templates', name
+      File.join File.dirname(__FILE__), 'templates/php_tpl', name
     end
 
     def dir_to_export_classes(dir)
