@@ -1,5 +1,15 @@
 # encoding: utf-8
 
+class String
+    def pascalize
+      self.split('_').map{|s| s.capitalize}.join
+    end
+
+    def camelize
+      self.pascalize.sub(/^([a-zA-Z])/, self[0, 1].downcase)
+    end
+end
+
 require 'erb'
 require 'rpcoder/function'
 require 'rpcoder/type'
