@@ -103,8 +103,10 @@ module RPCoder
       case @type.downcase
       when 'int'
         's32'
-      when 'string', 'double'
+      when 'string'
         @type.downcase
+      when 'double'
+        'float'
       else
         @type
       end
