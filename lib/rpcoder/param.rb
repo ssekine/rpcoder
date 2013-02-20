@@ -86,5 +86,28 @@ module RPCoder
 
       str
     end
+
+    def type2xml
+      if self.array?
+        if self.builtin_type?
+          @name.to_s.camelize + 'List'
+        else
+          @type + 'List'
+        end
+      else
+        self.type2xml_nolist
+      end
+    end
+
+    def type2xml_nolist
+      case @type.downcase
+      when 'int'
+        's32'
+      when 'string', 'double'
+        @type.downcase
+      else
+        @type
+      end
+    end
   end
 end

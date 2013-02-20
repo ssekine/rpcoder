@@ -75,6 +75,11 @@ module RPCoder
     end
 
     def export(dir = nil)
+      if '2' == ARGV[0]
+        self.export_xml(dir)
+        return
+      end
+
       # 共通出力先パス
       if dir.nil?
         dir = File.expand_path('src', File.dirname($PROGRAM_NAME))
@@ -143,6 +148,66 @@ module RPCoder
 #        puts "PHP #{erb_name} : #{file_path}"
         File.open(file_path, "w") do |file| file << render_basephp(version, erb_name) end # コントラクトバージョンも渡す
       end
+    end
+
+    def export_xml(dir = nil)
+      # 共通出力先パス
+      if dir.nil?
+        dir = File.expand_path('src', File.dirname($PROGRAM_NAME))
+      end
+      root_path = dir
+      FileUtils.mkdir_p(root_path)  # 出力先ディレクトリがなければ作成する
+
+      # コントラクトバージョンの取得 -------------------------------------------
+      version = ""
+      contract_path = File.join($PROGRAM_NAME)
+      open("| git hash-object #{contract_path}") do |f|
+        version = f.gets.strip # gitコマンドから、コントラクトファイルの最新コミットハッシュを取得する
+        puts "This Contract Hash (Version) is \"#{version}\""
+      end
+
+      # enumをintにする TODO 暫定処置です --------------------------------------
+      functions.each_with_index do |f, i|
+        f.params.each_with_index do |p, j|
+          unless enums_hash[p.type].nil?
+            functions[i].params[j].type = 'int' if defined?(enums_hash[p.type])
+          end
+        end
+        f.return_types.each_with_index do |r, j|
+          unless enums_hash[r.type].nil?
+            functions[i].return_types[j].type = 'int' if defined?(enums_hash[r.type])
+          end
+        end
+      end
+      types.each_with_index do |t, i|
+        t.fields.each_with_index do |f, j|
+          unless enums_hash[types[i].fields[j].type].nil?
+            types[i].fields[j].type = 'int' if defined?(enums_hash[types[i].fields[j].type])
+          end
+        end
+      end
+
+      # functionを処理 ---------------------------------------------------------
+      funcs_arr = {}
+      functions.each do |func|
+        /[a-zA-Z_]+/ =~ func.path.to_s
+        func.path = $&.pascalize
+        funcs_arr[func.path] ||= []
+        funcs_arr[func.path] << func
+      end
+
+      funcs_arr.each do |contract_name, funcs|
+        file_path = File.join(root_path, contract_name + ".xml")
+        File.open(file_path, "w") do |file| file << render_xml(contract_name, funcs) end
+      end
+
+      # typeを処理 -------------------------------------------------------------
+      file_path = File.join(root_path, "Types.xml")
+      File.open(file_path, "w") do |file| file << render_xml('Types', types) end
+    end
+
+    def render_xml(contract_name, contract_arr)
+      render_erb("php_xml.erb", binding)
     end
 
     # function用のファイル生成
