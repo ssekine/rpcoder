@@ -1,7 +1,7 @@
 module RPCoder
   class Param
     def self.original_types
-      [:int, :String, :Boolean, :Array, :Double]
+      [:int, :Int, :double, :Double, :string, :bool, :Boolean, :String, :Array]
     end
 
     attr_accessor :name, :type, :options

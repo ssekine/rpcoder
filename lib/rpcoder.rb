@@ -3,6 +3,7 @@
 require 'erb'
 require 'rpcoder/function'
 require 'rpcoder/type'
+require 'rpcoder/enum'
 
 module RPCoder
   class << self
@@ -44,6 +45,23 @@ module RPCoder
       yield func
       functions << func
       func
+    end
+
+    def enums
+      @enums ||= []
+    end
+
+    def enums_hash
+      @enums_hash ||= {}
+    end
+
+    def enum(name)
+      enum = Enum.new
+      enum.name = name
+      yield enum
+      enums << enum
+      enums_hash[name] = enum
+      enum
     end
 
     def export(dir = nil)
