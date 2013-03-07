@@ -90,9 +90,9 @@ module RPCoder
     def type2xml
       if self.array?
         if self.builtin_type?
-          @name.to_s.camelize + 'List'
+          @name.to_s.camelize + '_List'
         else
-          @type + 'List'
+          @type + '_List'
         end
       else
         self.type2xml_nolist
