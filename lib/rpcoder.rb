@@ -96,11 +96,9 @@ module RPCoder
 
       # function毎にファイル化する ---------------------------------------------
       {"func" => "lib/Contract/Function", "api" => "public_html/api"}.each do |erb_name, parent_path|
-        if "public_html" ===  parent_path.split("/").fetch(0)
-          # public_html配下のとき、path.phpを作成するフラグを立てる
-          require_pathphp_flg = true
-        end
-        dir_path_back = '' # 前回処理したfuncのdir_path
+        # public_html配下のとき、path.phpを作成するフラグを立てる
+        require_pathphp_flg = ("public_html" ===  parent_path.split("/").fetch(0))
+        dir_path_back       = '' # 前回処理したfuncのdir_path
 
         functions.each do |func|
           project_path = File.join(parent_path.split("/"), func.path.to_s.sub(/[^\/]*\.php/, "").sub(/:.*$/, "").split("/")) # プロジェクトのディレクトリ構造
@@ -109,14 +107,14 @@ module RPCoder
 
           if true === require_pathphp_flg
             # public_html下にあるとき
-            unless dir_path === dir_path_back
-              # 前回と違うパスのとき
-              make_pathphp(dir_path, project_path) # 出力先ディレクトリにpath.phpがなければ作成する
-            end
-            dir_path_back = dir_path # 前回処理パスを更新する
+
+            # 前回と違うパスのとき、出力先ディレクトリにpath.phpがなければ作成する
+            make_pathphp(dir_path, project_path) unless dir_path === dir_path_back
 
             # func.pathの通りに生成する
             file_path = File.join(root_path, parent_path.split("/"), func.path.to_s.sub(/:.*$/, "").split("/"))
+
+            dir_path_back = dir_path # 前回処理パスを更新する
           else
             # func.pathのファイル名をfunc.nameに変えて生成する
             file_path = File.join(dir_path, func.name + ".php")
@@ -212,12 +210,8 @@ module RPCoder
 
     # function用のファイル生成
     def render_funcphp(func, erb_name)
-      # erb内で"func"にアクセス可能
-      if "api" === erb_name
-        # php_api.erb内で"api_use_types"にアクセス可能 (このfunctionで使用されるtypeの配列)
-        api_use_types = get_use_types(func.return_types).uniq
-      end
-
+      # erb内で"func","api_use_types"にアクセス可能
+      api_use_types = get_use_types(func.return_types).uniq # このfunctionで使用されるtypeの配列
       render_erb("php_#{erb_name}.erb", binding)
     end
 
