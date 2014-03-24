@@ -1,13 +1,13 @@
 # encoding: utf-8
 
 class String
-    def pascalize
-      self.split('_').map{|s| s.capitalize}.join
-    end
+  def pascalize
+    self.split('_').map{|s| s.capitalize}.join
+  end
 
-    def camelize
-      self.pascalize.sub(/^([a-zA-Z])/, self[0, 1].downcase)
-    end
+  def camelize
+    self.pascalize.sub(/^([a-zA-Z])/, self[0, 1].downcase)
+  end
 end
 
 require 'erb'
@@ -74,182 +74,120 @@ module RPCoder
       enum
     end
 
-    def export(dir = nil)
-      if '2' == ARGV[0]
-        self.export_xml(dir)
-        return
+    #
+    # ファイルを生成する
+    #
+    # @param string output_dir ファイル生成先ディレクトリ
+    #
+    def export(output_dir)
+      # xml変換用処理は取り除かれました、下記ハッシュでブランチを切ることで、当時の機能を利用することはできます、念のため
+      # git show d0adbd16c6305d6a1680700c05ed84c08b5eb9ce
+
+      # functions/type毎クラスの基底クラスを作成する ---------------------------
+      version = get_contract_version # コントラクトバージョンを取得する
+      {'ContractFunctionBase' => 'lib/Contract', 'ValidateType' => 'lib/Contract'}.each do |erb_name, parent_dir|
+        # ディレクトリを作成する
+        dir = File.join(output_dir, parent_dir)
+        FileUtils.mkdir_p(dir) # ディレクトリを作成する
+
+        file_path = File.join(dir, erb_name + '.php')
+        File.open(file_path, 'w') do |file|
+          # bindingに格納するものを羅列
+          version = version
+          file << render_php(erb_name, binding)
+        end
       end
 
-      # 共通出力先パス
-      if dir.nil?
-        dir = File.expand_path('src', File.dirname($PROGRAM_NAME))
-      end
-      root_path = dir
-
-      # コントラクトバージョンの取得 -------------------------------------------
-      version = ""
-      contract_path = File.join($PROGRAM_NAME)
-      open("| git hash-object #{contract_path}") do |f|
-        version = f.gets.strip # gitコマンドから、コントラクトファイルの最新コミットハッシュを取得する
-        puts "This Contract Hash (Version) is \"#{version}\""
-      end
-
-      # function毎にファイル化する ---------------------------------------------
-      {"func" => "lib/Contract/Function", "api" => "public_html/api"}.each do |erb_name, parent_path|
-        # public_html配下のとき、path.phpを作成するフラグを立てる
-        require_pathphp_flg = ("public_html" ===  parent_path.split("/").fetch(0))
-        dir_path_back       = '' # 前回処理したfuncのdir_path
-
+      # RPCoder.function毎にファイル化する -------------------------------------
+      {'func' => 'lib/Contract/Function', 'api' => 'public_html/api'}.each do |erb_name, parent_dir|
+        # RPCoder.function毎に処理する
         functions.each do |func|
-          project_path = File.join(parent_path.split("/"), func.path.to_s.sub(/[^\/]*\.php/, "").sub(/:.*$/, "").split("/")) # プロジェクトのディレクトリ構造
-          dir_path     = File.join(root_path, project_path) # 出力先パスを生成する
-          FileUtils.mkdir_p(dir_path)                       # 出力先ディレクトリがなければ作成する
+          # ディレクトリを作成する
+          func_dir = File.join(parent_dir, func.path.sub(/[^\/]*\.php/, '').sub(/:.*$/, ''))
+          dir      = File.join(output_dir, func_dir)
+          FileUtils.mkdir_p(dir)
 
-          if true === require_pathphp_flg
-            # public_html下にあるとき
-
-            # 前回と違うパスのとき、出力先ディレクトリにpath.phpがなければ作成する
-            make_pathphp(dir_path, project_path) unless dir_path === dir_path_back
-
-            # func.pathの通りに生成する
-            file_path = File.join(root_path, parent_path.split("/"), func.path.to_s.sub(/:.*$/, "").split("/"))
-
-            dir_path_back = dir_path # 前回処理パスを更新する
+          # ファイルを作成する
+          if 'api' === erb_name
+            make_pathphp(dir, func_dir.split('/').size)
+            file_path = File.join(output_dir, parent_dir, func.path.sub(/:.*$/, ''))
           else
-            # func.pathのファイル名をfunc.nameに変えて生成する
-            file_path = File.join(dir_path, func.name + ".php")
+            file_path = File.join(dir, func.name + '.php')
           end
-
-#          puts "PHP #{erb_name} : #{file_path}"
-          File.open(file_path, "w") do |file| file << render_funcphp(func, erb_name) end
+          File.open(file_path, 'w') do |file|
+            # bindingに格納するものを羅列
+            func          = func
+            api_use_types = get_use_types(func.return_types).uniq # このfunctionで使用されるtypeの配列
+            file << render_php(erb_name, binding)
+          end
         end
       end
 
-      # type毎にファイル化する -------------------------------------------------
-      {"type" => "lib/Contract/Type"}.each do |erb_name, parent_path|
+      # RPCoder.type毎にファイル化する -----------------------------------------
+      {'type' => 'lib/Contract/Type'}.each do |erb_name, parent_dir|
+        # RPCoder.type毎に処理する
         types.each do |type|
-          dir_path  = File.join(root_path, parent_path.split("/")) # 出力先パスを生成する
-          file_path = File.join(dir_path, type.name + ".php")      # 出力先ファイル名を生成する
-          FileUtils.mkdir_p(dir_path)                              # 出力先ディレクトリがなければ作成する
+          # ディレクトリを作成する
+          dir = File.join(output_dir, parent_dir)
+          FileUtils.mkdir_p(dir) # ディレクトリを作成する
 
-#          puts "PHP #{erb_name} : #{file_path}"
-          File.open(file_path, "w") do |file| file << render_typephp(type, erb_name) end
+          # ファイルを作成する
+          file_path = File.join(dir, type.name + '.php')
+          File.open(file_path, 'w') do |file|
+            # bindingに格納するものを羅列
+            type = type
+            file << render_php(erb_name, binding)
+          end
         end
-      end
-
-      # functions/typeをひとつのファイルに (継承元になるようなファイルとして) 書き出す
-      {"ContractFunctionBase" => "lib/Contract", "ValidateType" => "lib/Contract"}.each do |erb_name, parent_path|
-        dir_path  = File.join(root_path, parent_path.split("/")) # 出力先パスを生成する
-        file_path = File.join(dir_path, erb_name + ".php")       # 出力先ファイル名を生成する
-        FileUtils.mkdir_p(dir_path)                              # 出力先ディレクトリがなければ作成する
-
-#        puts "PHP #{erb_name} : #{file_path}"
-        File.open(file_path, "w") do |file| file << render_basephp(version, erb_name) end # コントラクトバージョンも渡す
       end
     end
 
-    def export_xml(dir = nil)
-      # 共通出力先パス
-      if dir.nil?
-        dir = File.expand_path('src', File.dirname($PROGRAM_NAME))
+    #
+    # path.phpがなければ作成する
+    #
+    # @param string dir   ディレクトリ
+    # @param int    depth 深さ
+    #
+    def make_pathphp(dir, depth)
+      file_path = File.join(dir, 'path.php')
+      unless File.exist?(file_path)
+        File.open(file_path, 'w') do |file|
+          # bindingに格納するものを羅列
+          depth = depth
+          file << render_php('path', binding)
+        end
       end
-      root_path = dir
-      FileUtils.mkdir_p(root_path)  # 出力先ディレクトリがなければ作成する
+    end
 
-      # コントラクトバージョンの取得 -------------------------------------------
-      version = ""
-      contract_path = File.join($PROGRAM_NAME)
-      open("| git hash-object #{contract_path}") do |f|
-        version = f.gets.strip # gitコマンドから、コントラクトファイルの最新コミットハッシュを取得する
+    #
+    # ファイルを書き出す
+    #
+    # @param string erb_name erbファイル名の一部
+    # @param object _binding 呼び出し元のbindingオブジェクト
+    #
+    def render_php(erb_name, _binding)
+      render_erb("php_#{erb_name}.erb", _binding)
+    end
+
+    #
+    # コントラクトバージョンを取得する
+    #
+    # @return string version コントラクトバージョン
+    #
+    def get_contract_version
+      version = ''
+      open("| git hash-object #{File.join($PROGRAM_NAME)}") do |f|
+        version = f.gets.strip
         puts "This Contract Hash (Version) is \"#{version}\""
       end
-
-      # enumをintにする TODO 暫定処置です --------------------------------------
-      functions.each_with_index do |f, i|
-        f.params.each_with_index do |p, j|
-          unless enums_hash[p.type].nil?
-            functions[i].params[j].type = 'int' if defined?(enums_hash[p.type])
-          end
-        end
-        f.return_types.each_with_index do |r, j|
-          unless enums_hash[r.type].nil?
-            functions[i].return_types[j].type = 'int' if defined?(enums_hash[r.type])
-          end
-        end
-      end
-      types.each_with_index do |t, i|
-        t.fields.each_with_index do |f, j|
-          unless enums_hash[types[i].fields[j].type].nil?
-            types[i].fields[j].type = 'int' if defined?(enums_hash[types[i].fields[j].type])
-          end
-        end
-      end
-
-      # functionを処理 ---------------------------------------------------------
-      funcs_arr = {}
-      functions.each do |func|
-        /[a-zA-Z_]+/ =~ func.path.to_s
-        func.path = $&.pascalize
-        funcs_arr[func.path] ||= []
-        funcs_arr[func.path] << func
-      end
-
-      funcs_arr.each do |contract_name, funcs|
-        file_path = File.join(root_path, contract_name + ".xml")
-        File.open(file_path, "w") do |file| file << render_xml(contract_name, funcs) end
-      end
-
-      # typeを処理 -------------------------------------------------------------
-      file_path = File.join(root_path, "Types.xml")
-      File.open(file_path, "w") do |file| file << render_xml('Types', types) end
-    end
-
-    def render_xml(contract_name, contract_arr)
-      render_erb("php_xml.erb", binding)
-    end
-
-    # function用のファイル生成
-    def render_funcphp(func, erb_name)
-      # erb内で"func","api_use_types"にアクセス可能
-      api_use_types = get_use_types(func.return_types).uniq # このfunctionで使用されるtypeの配列
-      render_erb("php_#{erb_name}.erb", binding)
-    end
-
-    # type用のファイル生成
-    def render_typephp(type, erb_name)
-      # erb内で"type"にアクセス可能
-      render_erb("php_#{erb_name}.erb", binding)
-    end
-
-    # function/type共用のファイル生成
-    def render_basephp(version, erb_name)
-      # erb内で"version"にアクセス可能
-      render_erb("php_#{erb_name}.erb", binding)
-    end
-
-    #
-    # path.phpがなければ作成
-    #
-    # @param  string  dir_path_make   ファイルを作成するディレクトリ
-    # @param  string  dir_path_depth  深さを算出するディレクトリ
-    #
-    def make_pathphp(dir_path_make, dir_path_depth)
-      file_path = File.join(dir_path_make, "path.php")
-#      puts "path    : #{file_path}" # 出力ファイルパスを表示
-      File.open(file_path, "w") do |file| file << render_pathphp(dir_path_depth.split("/").size) end
-    end
-
-    # path.php用のファイル生成
-    def render_pathphp(depth)
-      # erb内で"depth"にアクセス可能
-      render_erb("php_path.erb", binding)
+      version
     end
 
     #
     # 特定のfunctionで使用されるtypeの配列を取得する
     #
-    # @param   object  fields     最初呼び出しではfunc.return_types、再帰呼び出しではtype.fields
-    # @return  array   use_types  使用されるtypeの配列
+    # @param  object fields    最初呼び出しではfunc.return_types、再帰呼び出しではtype.fields
+    # @return array  use_types 使用されるtypeの配列
     #
     def get_use_types(fields)
       use_types = []
@@ -266,7 +204,7 @@ module RPCoder
         end
       end
 
-      return use_types
+      use_types
     end
 
     def render_erb(template, _binding)
@@ -287,7 +225,7 @@ module RPCoder
     end
 
     # クライアントチームが使用する関数であるため、こちらではダミー
-    def add_template(dummy1,dummy2)
+    def add_template(dummy1, dummy2)
     end
 
     def output_path=(dummy)

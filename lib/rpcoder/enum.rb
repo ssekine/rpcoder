@@ -1,4 +1,4 @@
-﻿require 'rpcoder/param'
+require 'rpcoder/param'
 
 module RPCoder
   class Enum
@@ -30,6 +30,46 @@ module RPCoder
         @num += 1
       end
       constants
+    end
+
+    def get_php_arr
+      str = 'array('
+      constants.each do |enum_item|
+        str += enum_item.num.to_s + ', '
+      end
+      str += ')'
+    end
+
+    def get_min
+      if flags?
+        return 0
+      else
+        min = nil
+        constants.each do |enum_item|
+          if min.nil? or min > enum_item.num
+            min = enum_item.num
+          end
+        end
+        return min
+      end
+    end
+
+    def get_max
+      if flags?
+        sum = 0;
+        constants.each do |enum_item|
+          sum += enum_item.num
+        end
+        return sum
+      else
+        max = nil
+        constants.each do |enum_item|
+          if max.nil? or max < enum_item.num
+            max = enum_item.num
+          end
+        end
+        return max
+      end
     end
 
     class EnumItem

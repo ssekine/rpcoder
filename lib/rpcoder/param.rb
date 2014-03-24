@@ -1,7 +1,7 @@
 module RPCoder
   class Param
     def self.original_types
-      [:int, :Int, :double, :Double, :string, :bool, :Boolean, :String, :Array]
+      [:int, :Int, :double, :Double, :string, :String, :bool, :Boolean, :Array]
     end
 
     attr_accessor :name, :type, :options
@@ -85,31 +85,6 @@ module RPCoder
       end
 
       str
-    end
-
-    def type2xml
-      if self.array?
-        if self.builtin_type?
-          @name.to_s.camelize + '_List'
-        else
-          @type + '_List'
-        end
-      else
-        self.type2xml_nolist
-      end
-    end
-
-    def type2xml_nolist
-      case @type.downcase
-      when 'int'
-        's32'
-      when 'string'
-        @type.downcase
-      when 'double'
-        'float'
-      else
-        @type
-      end
     end
   end
 end
