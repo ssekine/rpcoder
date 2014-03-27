@@ -2,11 +2,18 @@
 
 class String
   def pascalize
+    # PascalCase ('_'で分割し、各頭文字を大文字化したあと結合)
     self.split('_').map{|s| s.capitalize}.join
   end
 
   def camelize
-    self.pascalize.sub(/^([a-zA-Z])/, self[0, 1].downcase)
+    # camelCase (self.pascalizeを呼び出し、先頭を小文字化)
+    self.pascalize.sub(/^([A-Z])/, self[0, 1].downcase)
+  end
+
+  def to_snake
+    # snake_case (大文字を小文字にして'_'を付ける, ただし先頭は対象外)
+    self.gsub(/^.+([A-Z])/, '_' + self[0, 1].downcase)
   end
 end
 
@@ -70,7 +77,7 @@ module RPCoder
       enum.name = name
       yield enum
       enums << enum
-      enums_hash[name] = enum
+      enums_hash[name.to_s] = enum
       enum
     end
 
@@ -85,7 +92,11 @@ module RPCoder
 
       # functions/type毎クラスの基底クラスを作成する ---------------------------
       version = get_contract_version # コントラクトバージョンを取得する
-      {'ContractFunctionBase' => 'lib/Contract', 'ValidateType' => 'lib/Contract'}.each do |erb_name, parent_dir|
+      {
+        'ContractFunctionBase' => 'lib/Contract',
+        'ValidateType'         => 'lib/Contract',
+        'Enum'                 => 'lib/Contract',
+      }.each do |erb_name, parent_dir|
         # ディレクトリを作成する
         dir = File.join(output_dir, parent_dir)
         FileUtils.mkdir_p(dir) # ディレクトリを作成する
@@ -103,14 +114,14 @@ module RPCoder
         # RPCoder.function毎に処理する
         functions.each do |func|
           # ディレクトリを作成する
-          func_dir = File.join(parent_dir, func.path.sub(/[^\/]*\.php/, '').sub(/:.*$/, ''))
+          func_dir = File.join(parent_dir, func.get_path_without_file_name)
           dir      = File.join(output_dir, func_dir)
           FileUtils.mkdir_p(dir)
 
           # ファイルを作成する
           if 'api' === erb_name
             make_pathphp(dir, func_dir.split('/').size)
-            file_path = File.join(output_dir, parent_dir, func.path.sub(/:.*$/, ''))
+            file_path = File.join(output_dir, parent_dir, func.path)
           else
             file_path = File.join(dir, func.name + '.php')
           end
@@ -194,10 +205,9 @@ module RPCoder
 
       fields.each do |field|
         unless field.builtin_type?
-          # 組み込み型でないとき
-          use_types.push(field.type.to_s) # それをとっておく
           types.each do |type|
             if type.name.to_s === field.type.to_s
+              use_types.push(field.type.to_s)              # 保持
               use_types.concat(get_use_types(type.fields)) # 再帰
             end
           end

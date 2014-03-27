@@ -42,5 +42,10 @@ module RPCoder
     def add_return_type(name, type, options = {})
       return_types << Param.new(name, type, options)
     end
+
+    # pathからファイル名除去部分を取得する
+    def get_path_without_file_name
+      path.sub(/[^\/]*\.php/, '')
+    end
   end
 end

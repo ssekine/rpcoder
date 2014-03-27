@@ -86,5 +86,14 @@ module RPCoder
 
       str
     end
+
+    # 変数名にするさいの接尾辞を取得する
+    def get_php_var_name
+      name_str = name.to_s
+      if array?
+        return name_str += "_array"
+      end
+      name_str
+    end
   end
 end
